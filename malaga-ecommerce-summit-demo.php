@@ -10,29 +10,6 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-if ( ! function_exists( 'mesd_enable_mcp_integration' ) ) {
-    /**
-     * Activa la integración MCP en WooCommerce añadiendo la feature flag 'mcp_integration' al array de
-     * características. Esto es necesario para que WooCommerce exponga las funcionalidades de MCP a través
-     * de su API y permita que herramientas como Visual Studio Code puedan interactuar con WooCommerce 
-     * usando MCP.
-     *
-     * @param array $features WooCommerce features array.
-     * @return array
-     */
-    function mesd_enable_mcp_integration( $features ) {
-        $features['mcp_integration'] = true;
-        return $features;
-    }
-}
-
-add_filter( 'woocommerce_features', 'mesd_enable_mcp_integration' );
-
-/**
- * Activa esta opción solo en entornos de desarrollo, no en producción, ya que permite conexiones sin HTTPS.
- */
-add_filter( 'woocommerce_mcp_allow_insecure_transport', '__return_true' );
-
 // Este hook se ejecuta cuando la Abilities API está lista para registrar categorías.
 add_action( 'wp_abilities_api_categories_init', function() {
     if ( ! function_exists( 'wp_register_ability_category' ) ) {
