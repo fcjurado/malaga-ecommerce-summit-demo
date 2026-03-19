@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.0 - 2026-03-19
+
+- Added `mcp-commerce-demo/list-products` to expose WooCommerce catalog data through MCP.
+- Expanded the README with MCP setup guidance for VS Code and Claude Desktop.
+- Added product-focused example prompts to the documentation.
+
 ## 1.0.2 - 2026-03-19
 
 - Added a minimal `.gitignore` for local development artifacts.

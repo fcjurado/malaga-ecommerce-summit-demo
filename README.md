@@ -1,6 +1,6 @@
 # Malaga Ecommerce Summit Demo
 
-Version: 1.0.1
+Version: 1.1.0
 
 Demo plugin for WordPress and WooCommerce focused on exposing MCP capabilities through the WordPress Abilities API.
 
@@ -17,6 +17,7 @@ Demo plugin for WordPress and WooCommerce focused on exposing MCP capabilities t
 - `mcp-commerce-demo/list-orders`
 - `mcp-commerce-demo/list-order-notes`
 - `mcp-commerce-demo/list-customers`
+- `mcp-commerce-demo/list-products`
 - `mcp-commerce-demo/list-coupons`
 - `mcp-commerce-demo/list-refunds`
 
@@ -33,6 +34,101 @@ Commerce abilities can only be executed by users with `manage_woocommerce` or `m
 ## Purpose
 
 This plugin is intended for demos and MCP-connected assistants that need to query WooCommerce orders, customers, coupons, refunds, and order notes without relying on the WooCommerce admin UI.
+
+## MCP setup
+
+This plugin is intended to be used behind the WordPress MCP Adapter endpoint.
+
+### VS Code
+
+Create or update `.vscode/mcp.json` in your project with placeholder values like these:
+
+```json
+{
+	"servers": {
+		"wordpress-mcp-demo": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@automattic/mcp-wordpress-remote@latest"
+			],
+			"env": {
+				"WP_API_URL": "https://your-site.example/wp-json/mcp/mcp-adapter-default-server",
+				"WP_API_USERNAME": "your-username",
+				"WP_API_PASSWORD": "your-application-password",
+				"NODE_TLS_REJECT_UNAUTHORIZED": "0"
+			}
+		}
+	}
+}
+```
+
+Notes:
+
+- Use an application password, never a real account password.
+- Replace the endpoint with your own MCP Adapter URL.
+- If your local certificate is trusted, remove `NODE_TLS_REJECT_UNAUTHORIZED`.
+
+### Claude Desktop
+
+On Windows, if Node is installed locally, `claude_desktop_config.json` can look like this:
+
+```json
+{
+	"mcpServers": {
+		"woocommerce_mcp": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@automattic/mcp-wordpress-remote@latest"
+			],
+			"env": {
+				"WP_API_URL": "https://your-site.example/wp-json/mcp/mcp-adapter-default-server",
+				"WP_API_USERNAME": "your-username",
+				"WP_API_PASSWORD": "your-application-password",
+				"NODE_TLS_REJECT_UNAUTHORIZED": "0"
+			}
+		}
+	}
+}
+```
+
+If Claude Desktop runs on Windows but your Node toolchain lives in WSL, use `wsl.exe` instead:
+
+```json
+{
+	"mcpServers": {
+		"woocommerce_mcp": {
+			"command": "wsl.exe",
+			"args": [
+				"npx",
+				"-y",
+				"@automattic/mcp-wordpress-remote@latest"
+			],
+			"env": {
+				"WP_API_URL": "https://your-site.example/wp-json/mcp/mcp-adapter-default-server",
+				"WP_API_USERNAME": "your-username",
+				"WP_API_PASSWORD": "your-application-password",
+				"NODE_TLS_REJECT_UNAUTHORIZED": "0"
+			}
+		}
+	}
+}
+```
+
+Notes:
+
+- Use the Windows config file used by Claude Desktop.
+- If `npx` is not available on Windows, the WSL-based configuration is usually more reliable.
+- Keep credentials out of the repository and out of screenshots.
+
+### How to prompt MCP clients
+
+Once connected, explicitly ask the client to use your MCP server and abilities. Examples:
+
+- `Use the MCP server to discover available WooCommerce abilities and summarize which ones are useful for orders, customers, products, coupons, and refunds.`
+- `Use mcp-commerce-demo/list-orders and tell me which 5 orders are the most recent.`
+- `Use mcp-commerce-demo/list-products and show me the most recent products with price, stock status, and category.`
 
 ## Example abilities and prompts
 
@@ -71,6 +167,18 @@ Example prompts:
 
 - `Use mcp-commerce-demo/list-customers and list 10 customers with name, email, city, phone, order count, and total spent.`
 - `Use mcp-commerce-demo/list-customers and summarize the demo customers from Andalucia.`
+
+### Products
+
+Ability:
+
+- `mcp-commerce-demo/list-products`
+
+Example prompts:
+
+- `Use mcp-commerce-demo/list-products and list the 10 most recent products with name, SKU, price, stock status, and categories.`
+- `Use mcp-commerce-demo/list-products and show me the products in the cafes category.`
+- `Use mcp-commerce-demo/list-products and find products that are out of stock.`
 
 ### Coupons
 
@@ -113,5 +221,6 @@ For a short live demo, these prompts work well:
 2. `Use mcp-commerce-demo/list-orders and highlight the orders created on 2026-03-19 that used coupon codes.`
 3. `Use mcp-commerce-demo/list-coupons and tell me which coupons have already been used and how many times.`
 4. `Use mcp-commerce-demo/list-customers and summarize the active customers who already have orders.`
-5. `Use mcp-commerce-demo/list-refunds and summarize recent refunds or compensations.`
-6. `Use mcp-commerce-demo/list-order-notes and identify notes about delay, refund, or post-sales follow-up.`
+5. `Use mcp-commerce-demo/list-products and show me the latest products with stock status and category.`
+6. `Use mcp-commerce-demo/list-refunds and summarize recent refunds or compensations.`
+7. `Use mcp-commerce-demo/list-order-notes and identify notes about delay, refund, or post-sales follow-up.`

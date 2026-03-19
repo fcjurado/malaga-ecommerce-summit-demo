@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Malaga Ecommerce Summit Demo
  * Description: Activa la integración MCP para WooCommerce (habilita la feature flag mcp_integration).
- * Version: 1.0.2
+ * Version: 1.1.0
  * Author: Malaga Ecommerce Summit
  */
 
@@ -149,6 +149,31 @@ function mesd_format_customer_summary( $user ) {
         'order_count'        => (int) wc_get_customer_order_count( $user->ID ),
         'total_spent'        => (float) wc_get_customer_total_spent( $user->ID ),
         'date_registered'    => $user->user_registered ? mysql2date( 'Y-m-d H:i:s', $user->user_registered, false ) : null,
+    ];
+}
+
+// Normaliza productos de WooCommerce para consultas MCP orientadas a catalogo.
+function mesd_format_product_summary( $product ) {
+    $category_names = wp_get_post_terms( $product->get_id(), 'product_cat', [ 'fields' => 'names' ] );
+    $image_url      = $product->get_image_id() ? wp_get_attachment_image_url( $product->get_image_id(), 'full' ) : null;
+
+    return [
+        'product_id'      => $product->get_id(),
+        'name'            => $product->get_name(),
+        'slug'            => $product->get_slug(),
+        'type'            => $product->get_type(),
+        'status'          => $product->get_status(),
+        'sku'             => (string) $product->get_sku(),
+        'price'           => '' === $product->get_price() ? null : (float) $product->get_price(),
+        'regular_price'   => '' === $product->get_regular_price() ? null : (float) $product->get_regular_price(),
+        'sale_price'      => '' === $product->get_sale_price() ? null : (float) $product->get_sale_price(),
+        'stock_status'    => $product->get_stock_status(),
+        'stock_quantity'  => null === $product->get_stock_quantity() ? null : (int) $product->get_stock_quantity(),
+        'featured'        => (bool) $product->get_featured(),
+        'categories'      => is_wp_error( $category_names ) ? [] : array_values( $category_names ),
+        'image_url'       => $image_url ? (string) $image_url : null,
+        'permalink'       => $product->is_visible() ? get_permalink( $product->get_id() ) : null,
+        'date_created'    => $product->get_date_created() ? $product->get_date_created()->date_i18n( 'Y-m-d H:i:s' ) : null,
     ];
 }
 
@@ -627,6 +652,112 @@ add_action( 'wp_abilities_api_init', function() {
                 }
 
                 return $customers;
+            },
+            'permission_callback' => function() {
+                return mesd_can_manage_commerce();
+            },
+            'meta' => mesd_get_ability_meta(),
+        ]
+    );
+
+    // Ability para consultar el catalogo de productos sin depender del admin de WooCommerce.
+    wp_register_ability(
+        'mcp-commerce-demo/list-products',
+        [
+            'label'         => 'List WooCommerce Products',
+            'description'   => 'Lista productos de WooCommerce con filtros basicos de catalogo, categoria y stock.',
+            'category'      => 'mcp-commerce-demo',
+            'input_schema'  => [
+                'type'       => 'object',
+                'properties' => [
+                    'limit' => [
+                        'type'        => 'integer',
+                        'description' => 'Numero maximo de productos a devolver. Maximo 50.',
+                        'default'     => 20,
+                    ],
+                    'search' => [
+                        'type'        => 'string',
+                        'description' => 'Texto para buscar por nombre o SKU.',
+                    ],
+                    'category' => [
+                        'type'        => 'string',
+                        'description' => 'Slug de la categoria de producto.',
+                    ],
+                    'stock_status' => [
+                        'type'        => 'string',
+                        'description' => 'Estado de stock: instock, outofstock u onbackorder.',
+                    ],
+                    'featured' => [
+                        'type'        => 'boolean',
+                        'description' => 'Si es true, solo devuelve productos destacados.',
+                    ],
+                ],
+            ],
+            'output_schema' => [
+                'type'        => 'array',
+                'description' => 'Lista de productos con precio, stock, categorias e imagen principal.',
+                'items'       => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'product_id'     => [ 'type' => 'integer' ],
+                        'name'           => [ 'type' => 'string' ],
+                        'slug'           => [ 'type' => 'string' ],
+                        'type'           => [ 'type' => 'string' ],
+                        'status'         => [ 'type' => 'string' ],
+                        'sku'            => [ 'type' => 'string' ],
+                        'price'          => [ 'type' => [ 'number', 'null' ] ],
+                        'regular_price'  => [ 'type' => [ 'number', 'null' ] ],
+                        'sale_price'     => [ 'type' => [ 'number', 'null' ] ],
+                        'stock_status'   => [ 'type' => 'string' ],
+                        'stock_quantity' => [ 'type' => [ 'integer', 'null' ] ],
+                        'featured'       => [ 'type' => 'boolean' ],
+                        'categories'     => [
+                            'type'  => 'array',
+                            'items' => [ 'type' => 'string' ],
+                        ],
+                        'image_url'      => [ 'type' => [ 'string', 'null' ] ],
+                        'permalink'      => [ 'type' => [ 'string', 'null' ] ],
+                        'date_created'   => [ 'type' => [ 'string', 'null' ] ],
+                    ],
+                ],
+            ],
+            'execute_callback' => function( $input ) {
+                if ( ! function_exists( 'wc_get_products' ) ) {
+                    return new WP_Error( 'no_woocommerce', 'WooCommerce no esta activo.' );
+                }
+
+                $limit = isset( $input['limit'] ) ? (int) $input['limit'] : 20;
+                $limit = max( 1, min( 50, $limit ) );
+
+                $query_args = [
+                    'limit'   => $limit,
+                    'orderby' => 'date',
+                    'order'   => 'DESC',
+                    'status'  => 'publish',
+                ];
+
+                if ( ! empty( $input['search'] ) ) {
+                    $query_args['search'] = sanitize_text_field( $input['search'] );
+                }
+
+                if ( ! empty( $input['category'] ) ) {
+                    $query_args['category'] = [ sanitize_title( $input['category'] ) ];
+                }
+
+                if ( ! empty( $input['stock_status'] ) ) {
+                    $stock_status = sanitize_key( $input['stock_status'] );
+                    if ( in_array( $stock_status, [ 'instock', 'outofstock', 'onbackorder' ], true ) ) {
+                        $query_args['stock_status'] = $stock_status;
+                    }
+                }
+
+                if ( array_key_exists( 'featured', $input ) ) {
+                    $query_args['featured'] = (bool) $input['featured'];
+                }
+
+                $products = wc_get_products( $query_args );
+
+                return array_map( 'mesd_format_product_summary', $products );
             },
             'permission_callback' => function() {
                 return mesd_can_manage_commerce();
