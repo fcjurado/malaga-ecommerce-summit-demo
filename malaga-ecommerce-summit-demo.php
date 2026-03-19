@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Malaga Ecommerce Summit Demo
  * Description: Activa la integración MCP para WooCommerce (habilita la feature flag mcp_integration).
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Malaga Ecommerce Summit
  */
 
